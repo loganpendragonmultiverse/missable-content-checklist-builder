@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "game": "North Road",
+  "milestones": ["Arrival", "Act 1 Finale", "Northern Pass"],
+  "items": [
+    {
+      "id": "workshop-letter",
+      "title": "Read the workshop letter",
+      "category": "lore",
+      "available": "Arrival",
+      "deadline": "Act 1 Finale",
+      "status": "pending",
+      "details": "It is on the shelf beside the damaged relay."
+    },
+    {
+      "id": "bridge-cache",
+      "title": "Open the bridge cache",
+      "category": "item",
+      "available": "Northern Pass",
+      "status": "pending"
+    }
+  ]
+}
