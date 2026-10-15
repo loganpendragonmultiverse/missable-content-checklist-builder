@@ -53,7 +53,44 @@ def load_checklist(path: Path) -> dict[str, Any]:
     return data
 
 
-def build_report(data: dict[str, Any], through: str, show_details: bool = False) -> dict[str, Any]:
+def load_progress(path: Path) -> dict[str, Any]:
+    """Read an explicit per-playthrough overlay; never write the authored guide."""
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError("progress must be an object")
+    return value
+
+
+def progress_states(data: dict[str, Any], progress: dict[str, Any]) -> dict[str, str]:
+    if progress.get("version") != 1:
+        raise ValueError("progress must be version 1")
+    if (
+        not isinstance(data.get("guide_id"), str)
+        or not data["guide_id"].strip()
+        or progress.get("guide_id") != data["guide_id"]
+    ):
+        raise ValueError("progress guide_id must match the authored guide")
+    if not isinstance(progress.get("playthrough"), str) or not progress["playthrough"].strip():
+        raise ValueError("progress requires a playthrough name")
+    states = progress.get("states")
+    if not isinstance(states, dict):
+        raise TypeError("progress states must be an object")
+    known = {item["id"] for item in data["items"]}
+    if any(key not in known for key in states):
+        raise ValueError("progress contains unknown item IDs")
+    if any(not isinstance(state, str) or state not in STATUSES for state in states.values()):
+        raise ValueError("progress contains an invalid state")
+    return states
+
+
+def build_report(
+    data: dict[str, Any],
+    through: str,
+    show_details: bool = False,
+    *,
+    progress: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    states = progress_states(data, progress) if progress is not None else {}
     milestones = data["milestones"]
     if through not in milestones:
         raise ValueError(f"unknown milestone: {through}")
@@ -64,6 +101,7 @@ def build_report(data: dict[str, Any], through: str, show_details: bool = False)
         if milestones.index(source["available"]) > boundary:
             continue
         item = source.copy()
+        item["status"] = states.get(item["id"], item["status"])
         deadline = item.get("deadline")
         item["overdue"] = (
             item["status"] == "pending"
@@ -76,6 +114,7 @@ def build_report(data: dict[str, Any], through: str, show_details: bool = False)
         visible.append(item)
     counts = Counter(item["status"] for item in visible)
     return {
+        **({"playthrough": progress["playthrough"]} if progress is not None else {}),
         "version": 1,
         "game": data["game"],
         "through": through,
@@ -93,6 +132,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Through **{report['through']}** · Visible items: **{report['visible_count']}** · Due and incomplete: **{report['overdue_count']}**",
         "",
     ]
+    if "playthrough" in report:
+        lines.extend([f"Playthrough: **{report['playthrough']}**", ""])
     categories = sorted({item["category"] for item in report["items"]})
     for category in categories:
         lines.extend([f"## {category.title()}", ""])
