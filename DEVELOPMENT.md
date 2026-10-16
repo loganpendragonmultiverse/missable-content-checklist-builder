@@ -1,6 +1,6 @@
 # Development
 
-## 1.1.0 candidate
+## 1.1.0 - 2026-10-15
 
 Keep authored guide statuses unchanged and supply a separate overlay with `--progress run-two.json`:
 
