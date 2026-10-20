@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "missable-content-checklist-builder"
-version = "1.1.1"
+version = "1.1.2"
 description = "Build reusable milestone-based game checklists with spoiler-controlled reports."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,3 +35,7 @@ omit = ["src/*/__main__.py"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=missable_content_checklist_builder --cov-branch --cov-report=term-missing --cov-fail-under=90"
+
+[tool.setuptools.data-files]
+"share/doc/missable-content-checklist-builder" = ["README.md", "CHANGELOG.md", "DEVELOPMENT.md", "TESTING.md"]
+"share/doc/missable-content-checklist-builder/examples" = ["examples/checklist.json"]
