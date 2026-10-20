@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import html
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -10,7 +12,11 @@ STATUSES = {"pending", "done", "skipped"}
 
 def load_checklist(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
+    return _validate_checklist(data)
+
+
+def _validate_checklist(data: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != 1:
         raise ValueError("checklist must be a version 1 object")
     if not isinstance(data.get("game"), str) or not data["game"].strip():
         raise ValueError("checklist requires a game name")
@@ -36,15 +42,17 @@ def load_checklist(path: Path) -> dict[str, Any]:
             or not isinstance(item.get("category"), str)
         ):
             raise TypeError("each item requires string id, title, and category")
+        if any(not item[key].strip() for key in ("id", "title", "category")):
+            raise ValueError("each item requires nonempty id, title, and category")
         if item["id"] in seen:
             raise ValueError(f"duplicate item id: {item['id']}")
         seen.add(item["id"])
-        if item.get("status") not in STATUSES:
+        if not isinstance(item.get("status"), str) or item["status"] not in STATUSES:
             raise ValueError(f"item {item['id']} has an invalid status")
-        if item.get("available") not in positions:
+        if not isinstance(item.get("available"), str) or item["available"] not in positions:
             raise ValueError(f"item {item['id']} has an unknown availability milestone")
         deadline = item.get("deadline")
-        if deadline is not None and deadline not in positions:
+        if deadline is not None and (not isinstance(deadline, str) or deadline not in positions):
             raise ValueError(f"item {item['id']} has an unknown deadline")
         if deadline is not None and positions[deadline] < positions[item["available"]]:
             raise ValueError(f"item {item['id']} deadline precedes availability")
@@ -62,7 +70,9 @@ def load_progress(path: Path) -> dict[str, Any]:
 
 
 def progress_states(data: dict[str, Any], progress: dict[str, Any]) -> dict[str, str]:
-    if progress.get("version") != 1:
+    if not isinstance(progress, dict):
+        raise TypeError("progress must be an object")
+    if type(progress.get("version")) is not int or progress["version"] != 1:
         raise ValueError("progress must be version 1")
     if (
         not isinstance(data.get("guide_id"), str)
@@ -90,6 +100,9 @@ def build_report(
     *,
     progress: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    _validate_checklist(data)
+    if not isinstance(show_details, bool):
+        raise TypeError("show_details must be a boolean")
     states = progress_states(data, progress) if progress is not None else {}
     milestones = data["milestones"]
     if through not in milestones:
@@ -100,7 +113,11 @@ def build_report(
     for source in data["items"]:
         if milestones.index(source["available"]) > boundary:
             continue
-        item = source.copy()
+        item = {
+            key: source[key]
+            for key in ("id", "title", "category", "status", "available", "deadline", "details")
+            if key in source
+        }
         item["status"] = states.get(item["id"], item["status"])
         deadline = item.get("deadline")
         item["overdue"] = (
@@ -125,25 +142,30 @@ def build_report(
     }
 
 
+def _markdown(value: str) -> str:
+    escaped = html.escape(value, quote=False)
+    return re.sub(r"([\\`*_{}\[\]()#+.!|>-])", r"\\\1", escaped).replace("\n", "<br>")
+
+
 def render_markdown(report: dict[str, Any]) -> str:
     lines = [
-        f"# {report['game']} Missable Checklist",
+        f"# {_markdown(report['game'])} Missable Checklist",
         "",
-        f"Through **{report['through']}** · Visible items: **{report['visible_count']}** · Due and incomplete: **{report['overdue_count']}**",
+        f"Through **{_markdown(report['through'])}** · Visible items: **{report['visible_count']}** · Due and incomplete: **{report['overdue_count']}**",
         "",
     ]
     if "playthrough" in report:
-        lines.extend([f"Playthrough: **{report['playthrough']}**", ""])
+        lines.extend([f"Playthrough: **{_markdown(report['playthrough'])}**", ""])
     categories = sorted({item["category"] for item in report["items"]})
     for category in categories:
-        lines.extend([f"## {category.title()}", ""])
+        lines.extend([f"## {_markdown(category.title())}", ""])
         for item in report["items"]:
             if item["category"] != category:
                 continue
             marker = "x" if item["status"] == "done" else " "
             warning = " · due now" if item["overdue"] else ""
-            lines.append(f"- [{marker}] **{item['title']}** — {item['status']}{warning}")
+            lines.append(f"- [{marker}] **{_markdown(item['title'])}** — {item['status']}{warning}")
             if item.get("details"):
-                lines.append(f"  - {item['details']}")
+                lines.append(f"  - {_markdown(item['details'])}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"

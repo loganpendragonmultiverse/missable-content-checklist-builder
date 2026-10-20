@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 - 2026-10-20
+
+- Apply full guide validation to direct report generation and reject malformed schema/identity fields.
+- Omit unsupported item metadata from spoiler-controlled reports and display Markdown markup literally.
+- Create output files exclusively and include authority documents plus the example checklist.
+
 ## 1.1.1 - 2026-10-16
 
 - Correct the completed 1.1.0 release wording and dates; feature behavior is unchanged.

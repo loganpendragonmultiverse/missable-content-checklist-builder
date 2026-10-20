@@ -27,3 +27,22 @@ Keep authored guide statuses unchanged and supply a separate overlay with `--pro
 ```
 
 The guide must explicitly define the same non-empty `guide_id`. Overlay keys refer to the guide’s authored item IDs; unknown IDs, wrong guide IDs, and states other than `pending`, `done`, or `skipped` fail validation. Overlay entries take precedence over authored status; omitted entries retain authored status. Progress for future items is accepted but those items stay excluded until their availability milestone. Due/incomplete counts use effective visible statuses. The guide and overlay are read-only; this command does not write progress or inspect game saves.
+
+## Report boundaries (1.1.2)
+
+Both file loading and direct report generation validate the complete guide.
+Schema versions must be integer `1`; item IDs, titles and categories must be
+nonempty text. Reports include supported item fields only, so unsupported extra
+metadata cannot leak into spoiler-controlled JSON. Details remain excluded unless
+explicitly requested, and future items stay excluded even with progress overlays.
+Authored titles and opted-in details remain your responsibility: the tool cannot
+infer whether supplied wording contains a spoiler. Markdown displays supplied
+markup literally. Output files are created exclusively.
+
+Installed distributions include the four project documents and the representative
+checklist under `share/doc/missable-content-checklist-builder/` inside the Python
+environment. Locate its root with `python -c "import sys; print(sys.prefix)"`.
+
+Existing output paths, including dangling symbolic links, are refused before
+exclusive file creation. This protects ordinary output collisions; it does not
+promise protection against hostile concurrent file-system changes.
